@@ -1,0 +1,37 @@
+[
+  {
+    "id": "langchain.prompt_templates",
+    "name": "Prompt Templates",
+    "category": "LangChain",
+    "prerequisites": [],
+    "keywords": ["ChatPromptTemplate", "prompt template", "messages", "format"]
+  },
+  {
+    "id": "langchain.embeddings",
+    "name": "OpenAI Embeddings",
+    "category": "LangChain",
+    "prerequisites": [],
+    "keywords": ["OpenAIEmbeddings", "embedding", "vector", "chunk"]
+  },
+  {
+    "id": "langgraph.stategraph",
+    "name": "StateGraph Basics",
+    "category": "LangGraph",
+    "prerequisites": [],
+    "keywords": ["StateGraph", "add_node", "add_edge", "set_entry_point"]
+  },
+  {
+    "id": "langgraph.conditional_edges",
+    "name": "Conditional Routing",
+    "category": "LangGraph",
+    "prerequisites": ["langgraph.stategraph"],
+    "keywords": ["conditional edges", "add_conditional_edges", "branch", "route_mode"]
+  },
+  {
+    "id": "rag.vectorstore",
+    "name": "FAISS Vectorstores",
+    "category": "RAG",
+    "prerequisites": ["langchain.embeddings"],
+    "keywords": ["FAISS", "vectorstore", "similarity_search"]
+  }
+]

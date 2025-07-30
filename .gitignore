@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+env/
+.venv/
+venv/
+
+# VS Code settings (optional)
+.vscode/
+
+# Environment variables
+.env
+.env.*
+
+# Data files
+*.pkl
+*.jsonl
+
+# FAISS / embedding persistence
+embeddings/
+*.faiss
+*.npy
+
+# Local documentation folder
+docs/
+
+# Logs and Q&A history
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docs for learning material
+./docs
