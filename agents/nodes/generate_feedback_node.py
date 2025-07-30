@@ -1,24 +1,45 @@
 from agents.state import TutorAgentState
-from prompts.feedback_prompt import FEEDBACK_PROMPT
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.runnables import RunnableConfig
+from prompts.feedback_prompt import feedback_prompt
+from langchain_core.runnables import RunnableLambda
 
-def generate_feedback_node(state: TutorAgentState) -> TutorAgentState:
-    questions = state.current_question
-    answers = state.user_responses
+from langgraph.graph import StateGraphNode
 
-    if not questions or not answers:
-        return state
+from langchain_openai import ChatOpenAI
 
-    prompt = ChatPromptTemplate.from_messages(FEEDBACK_PROMPT)
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.3)
-    parser = StrOutputParser()
+llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-    feedback = ""
-    for q, a in zip(questions, answers):
-        qa_prompt = prompt.format_messages(question=q, answer=a)
-        result = parser.invoke(llm.invoke(qa_prompt))
-        feedback += f"\nQ: {q}\n🧠 Feedback: {result.strip()}\n"
+parser = JsonOutputParser()
 
-    return state.model_copy(update={"feedback_output": feedback.strip()})
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", feedback_prompt),
+        ("human", "{question}"),
+        ("user", "{user_answer}"),
+    ]
+)
+
+chain = prompt | llm | parser
+
+def generate_feedback(state: TutorAgentState) -> TutorAgentState:
+    question = state.current_question.text
+    user_answer = state.user_input
+
+    try:
+        result = chain.invoke({
+            "question": question,
+            "user_answer": user_answer
+        }, config=RunnableConfig(tags=["feedback"]))
+
+        state.last_feedback = result.get("feedback", "").strip()
+        state.last_correct = result.get("correct", False)
+
+    except Exception as e:
+        state.last_feedback = f"[⚠️] Error generating feedback: {e}"
+        state.last_correct = False
+
+    return state
+
+node = generate_feedback

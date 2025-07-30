@@ -1,5 +1,5 @@
 from agents.state import TutorAgentState
-from agents.prompts.question_generation_prompt import QUESTION_GENERATION_PROMPT
+from prompts.question_generation_prompt import QUESTION_GENERATION_PROMPT
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser

@@ -1,21 +1,30 @@
+import os
+from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_core.documents import Document
 from pathlib import Path
-import pickle
 
-def embed_chunks(chunks: list, persis_path: str = "embeddings/vector_store"):
-    """Embeds and persists chunks using FAISS."""
-    print(f"[+] Embedding chunks with OpenAIEmbeddings...")
-    embeddings = OpenAIEmbeddings()
+VECTORSTORE_PATH = Path("embeddings/user_answers")
 
-    vectorstore = FAISS.from_documents(chunks, embeddings)
+def embed_texts_and_save(texts, metadatas, namespace="user_answers"):
+    """Embed a list of text chunks and save to a namespaced FAISS index."""
+    try:
+        if not texts:
+            print("[ℹ️] No texts to embed.")
+            return
 
-    Path(persis_path).parent.mkdir(parents=True, exist_ok=True)
-    vectorstore.save_local(persis_path)
-    print(f"[✓] Vector store saved to: {persis_path}")
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-def load_vectorstore(persis_path: str = "embeddings/vector_store.faiss"):
-    """Loads a persisted FAISS vector store."""
-    print(f"[+] Leading vector store...")
-    embeddings = OpenAIEmbeddings()
-    return FAISS.load_local(persis_path, embeddings)
+        docs = [
+            Document(page_content=txt, metadata=meta)
+            for txt, meta in zip(texts, metadatas)
+        ]
+
+        vectorstore = FAISS.from_documents(docs, embedding=embeddings)
+        VECTORSTORE_PATH.mkdir(parents=True, exist_ok=True)
+        vectorstore.save_local(str(VECTORSTORE_PATH))
+
+        print(f"[✅] Embedded and saved {len(texts)} correct answers to {VECTORSTORE_PATH}")
+
+    except Exception as e:
+        print(f"[❌] Embedding failed: {e}")

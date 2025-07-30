@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 import random
-from agents.prompts.review_prompt import REVIEW_PROMPT
+from prompts.review_prompt import REVIEW_PROMPT
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser

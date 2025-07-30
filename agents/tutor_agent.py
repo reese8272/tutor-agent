@@ -5,9 +5,9 @@ from agents.state import TutorAgentState
 
 # Shared nodes
 from agents.nodes.chat_node import conduct_chat_interaction
-from agents.nodes.store_answers_node import store_user_responses
+from agents.nodes.store_answers_node import store_answer
 from agents.nodes.suggest_next_node import suggest_next_unseen_concept
-from agents.nodes.generate_feedback_node import generate_feedback_node
+from agents.nodes.generate_feedback_node import generate_feedback
 
 # Learn mode nodes
 from agents.nodes.read_docs_node import retrieve_context_from_docs
@@ -25,8 +25,8 @@ def build_tutor_agent_graph():
     graph.add_node("retrieve_docs", retrieve_context_from_docs)
     graph.add_node("generate_questions", generate_concept_and_code_questions)
     graph.add_node("chat", conduct_chat_interaction)
-    graph.add_node("feedback", generate_feedback_node)
-    graph.add_node("store", store_user_responses)
+    graph.add_node("feedback", generate_feedback)
+    graph.add_node("store", store_answer)
     graph.add_node("suggest_next", suggest_next_unseen_concept)
 
     # Entry
@@ -52,8 +52,8 @@ def build_mode_routing_graph():
 
     # Shared nodes
     graph.add_node("chat", conduct_chat_interaction)
-    graph.add_node("feedback", generate_feedback_node)
-    graph.add_node("store", store_user_responses)
+    graph.add_node("feedback", generate_feedback)
+    graph.add_node("store", store_answer)
     graph.add_node("suggest_next", suggest_next_unseen_concept)
 
     # Learn path
@@ -90,3 +90,5 @@ def build_mode_routing_graph():
     graph.add_edge("suggest_next", END)
 
     return graph.compile()
+
+create_tutor_graph = build_mode_routing_graph

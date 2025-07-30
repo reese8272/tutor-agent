@@ -3,10 +3,9 @@
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-from langchain_openai import OpenAIEmbeddings  # ✅ FIXED
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from agents.state import TutorAgentState
-
 
 def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
     """Retrieve relevant documentation chunks based on user input."""
@@ -16,10 +15,9 @@ def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
         raise ValueError("No user input provided to retrieve context.")
 
     embeddings = OpenAIEmbeddings()
-
-    # ✅ Make sure `vectorstore_path` is a **folder**, not a file path
+    # Load the vector index from the local directory (embeddings/vector_store)
     vectorstore = FAISS.load_local(
-        state.vectorstore_path,  # ← should be something like: "embeddings/vector_store"
+        state.vectorstore_path,
         embeddings,
         allow_dangerous_deserialization=True
     )

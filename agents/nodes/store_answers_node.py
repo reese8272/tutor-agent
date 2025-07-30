@@ -1,46 +1,57 @@
-from agents.state import TutorAgentState
-from pathlib import Path
 import json
+from pathlib import Path
+from agents.state import TutorAgentState
+from datetime import datetime
 
-def store_user_responses(state: TutorAgentState) -> TutorAgentState:
-    log_path = Path("logs/question_log.json")
-    log_path.parent.mkdir(exist_ok=True)
+LOG_FILE = Path("logs/answers_log.json")
+LOG_FILE.parent.mkdir(exist_ok=True)
 
-    questions = state.current_question or []
-    answers = state.user_responses or []
+def store_answer(state: TutorAgentState) -> TutorAgentState:
+    question = state.current_question
+    answer = state.user_input
+    feedback = state.last_feedback
+    is_correct = state.last_correct
 
-    session_log = [
-        {"question": q, "answer": a}
-        for q, a in zip(questions, answers)
-    ]
+    if not is_correct:
+        print(f"❌ Answer not stored (incorrect): {answer}")
+        return state
 
-    if log_path.exists():
-        with open(log_path, "r") as f:
-            data = json.load(f)
-    else:
-        data = []
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "concept_id": question.concept_id,
+        "question": question.text,
+        "answer": answer,
+        "feedback": feedback
+    }
 
-    data.extend(session_log)
-
-    with open(log_path, "w") as f:
-        json.dump(data, f, indent=2)
-
-    # Update concept coverage
-    covered = set(state.covered_concepts or [])
-    new_concepts = set()
-
+    # Append to JSON log
     try:
-        with open("data/concepts.json", "r") as f:
-            catalog = json.load(f)
-    except:
-        catalog = []
+        if LOG_FILE.exists():
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        else:
+            logs = []
 
-    for q in questions:
-        for entry in catalog:
-            for kw in entry.get("keywords", []):
-                if kw.lower() in q.lower():
-                    if entry["id"] not in covered:
-                        new_concepts.add(entry["id"])
+        logs.append(log_entry)
 
-    updated_covered = list(covered.union(new_concepts))
-    return state.model_copy(update={"covered_concepts": updated_covered})
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(logs, f, indent=2)
+
+        print(f"[✅] Stored correct answer: {answer}")
+
+        # Add to embedding queue
+        state.pending_embeddings.append(log_entry)
+
+    except Exception as e:
+        print(f"[⚠️] Failed to log answer: {e}")
+
+    return state
+
+node = store_answer
+
+# For use at exit in main.py or ui.py
+def embed_and_store_user_answers(answer_logs):
+    from tools.embed_utils import embed_texts_and_save
+    texts = [entry["answer"] for entry in answer_logs]
+    metadatas = [{"concept_id": entry["concept_id"], "question": entry["question"]} for entry in answer_logs]
+    embed_texts_and_save(texts, metadatas, namespace="user_answers")

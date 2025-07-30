@@ -11,6 +11,7 @@ pydantic-settings
 unstructured
 beautifulsoup4
 lxml
+html2text
 
 python-dotenv
 typer
