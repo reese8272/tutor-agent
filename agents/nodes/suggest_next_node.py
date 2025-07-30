@@ -1,64 +1,36 @@
-# agents/nodes/suggest_next_node.py
-
-import json
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
 from agents.state import TutorAgentState
-from dotenv import load_dotenv
-load_dotenv(override=True)
-
-# Load the global concept catalog
-with open("data/concepts.json", "r", encoding="utf-8") as f:
-    CONCEPT_CATALOG = json.load(f)
-
-SYSTEM_PROMPT = """
-You are a helpful AI tutor who tracks student progress.
-
-The user has already covered the following concepts:
-{covered_concepts}
-
-Here are other possible concepts they have **not** seen yet:
-{uncovered_concepts}
-
-Based on the following documentation context:
-{retrieved_chunks}
-
-Suggest one or two specific **uncovered** concepts or coding ideas that the student should learn next.
-Be as concrete and actionable as possible.
-Only choose from the unseen concept list provided.
-"""
-
-PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([
-    ("system", SYSTEM_PROMPT)
-])
+from agents.prompts.question_generation_prompt import QUESTION_GENERATION_PROMPT
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+import json
+from pathlib import Path
 
 def suggest_next_unseen_concept(state: TutorAgentState) -> TutorAgentState:
-    """Suggest next topic based on documentation and coverage map."""
+    concepts_file = Path("data/concepts.json")
+    if not concepts_file.exists():
+        print("[⚠️] Missing data/concepts.json")
+        return state
 
-    print("[🧭] Suggesting next topic to explore...")
+    with open(concepts_file, "r") as f:
+        all_concepts = json.load(f)
 
-    # Covered + uncovered concepts
-    covered_set = set(state.covered_concepts or [])
+    covered = set(state.covered_concepts or [])
     uncovered = []
-    for concept in CONCEPT_CATALOG:
-        cid = concept["id"]
-        prereqs = concept.get("prerequisites", [])
-        if cid not in covered_set and all(p in covered_set for p in prereqs):
+
+    for concept in all_concepts:
+        prereqs = set(concept.get("prerequisites", []))
+        if concept["id"] not in covered and prereqs.issubset(covered):
             uncovered.append(concept["name"])
 
-    uncovered = sorted(uncovered)
-    covered_str = "\n".join(state.covered_concepts or ["None"])
-    uncovered_str = "\n".join(uncovered or ["None"])
-    context_str = "\n\n".join(state.retrieved_chunks or [])
+    context = "\n".join([doc.page_content for doc in (state.retrieved_chunks or [])])
+    prompt = ChatPromptTemplate.from_messages(QUESTION_GENERATION_PROMPT)
+    chain = prompt | ChatOpenAI(model="gpt-3.5-turbo", temperature=0.4) | StrOutputParser()
 
-    prompt = PROMPT_TEMPLATE.format_messages(
-        covered_concepts=covered_str,
-        uncovered_concepts=uncovered_str,
-        retrieved_chunks=context_str,
-    )
+    result = chain.invoke({
+        "covered": list(covered),
+        "uncovered": uncovered,
+        "docs": context[:4000]  # truncate to fit
+    })
 
-    llm = ChatOpenAI(temperature=0.3)
-    result = llm(prompt)
-    suggestion = result.content.strip()
-
-    return state.model_copy(update={"tutor_output": suggestion})
+    return state.model_copy(update={"next_suggestion": result.strip()})

@@ -2,6 +2,8 @@
 
 An **AI-powered interactive tutor** that reads LangChain and LangGraph documentation, quizzes you with open-ended concept and coding questions, and evolves based on what you've already mastered. Powered by LangGraph, LangChain, and Retrieval-Augmented Generation (RAG).
 
+---
+
 ## 🚀 Features
 
 - **Documentation Ingestion**  
@@ -13,74 +15,154 @@ An **AI-powered interactive tutor** that reads LangChain and LangGraph documenta
 - **Smart Question Tracking**  
   Logs what you’ve been taught and intelligently suggests new material you haven’t mastered.
 
-- **RAG Database Logging**  
-  All Q&A interactions are stored and indexed for long-term personalized learning.
+- **Review Mode**  
+  Revisits previously asked questions and generates follow-up quizzes from your past answers.
+
+- **Gradio + CLI Support**  
+  Use it in the browser or directly from the terminal.
+
+---
 
 ## 🗂️ Project Structure
 
 ```
 langgraph_tutor_agent/
-├── docs/                   # Local documentation (LangChain, LangGraph)
-├── embeddings/             # FAISS/Chroma vector store
-├── logs/                   # All question/answer logs (JSON)
-├── data/                   # Chunked docs and metadata
-├── agents/                 # LangGraph nodes and graph logic
-├── tools/                  # Utility functions (loading, embedding, etc.)
-├── prompts/                # Prompt engineering for nodes
-├── main.py                 # Entry point
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
+├── docs/                   # Raw .md documentation (LangChain, LangGraph, etc.)
+├── data/
+│   └── concepts.json       # Concept IDs, keywords, and prerequisites
+├── embeddings/
+│   └── vector_store/       # FAISS vector index
+├── logs/
+│   └── question_log.json   # All session Q&A logs
+├── agents/
+│   ├── state.py            # Pydantic state for LangGraph
+│   ├── tutor_agent.py      # Graph logic for learn/review
+│   └── nodes/
+│       ├── generate_questions.py
+│       ├── chat_node.py
+│       ├── generate_feedback_node.py
+│       ├── suggest_next_node.py
+│       ├── store_answers_node.py
+│       ├── review_node.py
+│       └── read_docs_node.py
+├── prompts/                # Prompt templates for each agent node
+├── tools/
+│   ├── doc_loader.py
+│   └── prep_docs.py
+├── web/
+│   └── ui.py               # Gradio web UI
+├── main.py                 # CLI interface
+├── requirements.txt
+└── README.md
 ```
+
+---
 
 ## 📦 Installation
 
 ```bash
 git clone https://github.com/your-username/langgraph-tutor-agent.git
 cd langgraph_tutor_agent
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
+Then create a `.env` file:
+```
+OPENAI_API_KEY=your-key-here
+```
+
+---
+
+## 🧠 Setup: Preparing Documentation
+
+1. Drop Markdown `.md` files into the `docs/` folder.
+2. Run the prep script:
+```bash
+python tools/prep_docs.py
+```
+
+---
+
 ## 🧪 Usage
+
+### Run via CLI
 
 ```bash
 python main.py
 ```
 
-Follow the interactive prompt. The agent will teach, quiz, and learn with you.
+- Choose between `learn` and `review` mode
+- Get questions and answer them in the terminal
+- Receive AI feedback and new concept suggestions
 
-## 🔧 Configuration
+### Run via Gradio UI
 
-- Add your LangChain/LangGraph docs to `./docs/`
-- Customize chunking or embedding settings in `tools/doc_loader.py`
-- Prompts are editable in `./prompts/`
+```bash
+python web/ui.py
+```
 
-## 📚 Example Interaction
+- Interact with the tutor in your browser
+- Type answers into form fields
+- Receive feedback and suggestion in real-time
 
-> **Agent:** “What is the role of a `StateGraph` in LangGraph?”  
-> **You:** “It defines the agent’s node flow and state transitions.”  
-> **Agent:** “Correct. Can you now implement a minimal `StateGraph` with two nodes?”
+---
+
+## 📚 Concept Mapping
+
+To track your learning progress, define your curriculum in `data/concepts.json`. Example:
+
+```json
+[
+  {
+    "id": "StateGraph",
+    "name": "LangGraph StateGraph",
+    "keywords": ["StateGraph", "add_edge", "State"],
+    "prerequisites": []
+  },
+  {
+    "id": "Nodes",
+    "name": "LangGraph Nodes",
+    "keywords": ["Node", "invoke", "flow"],
+    "prerequisites": ["StateGraph"]
+  }
+]
+```
+
+---
 
 ## 🧠 Tech Stack
 
 - Python 3.11+
 - LangChain + LangGraph
-- FAISS / Chroma
-- OpenAI (or any LLM with tool-calling)
+- OpenAI (GPT-3.5 / GPT-4)
+- FAISS
 - Pydantic
+- Gradio
+
+---
 
 ## 📈 Roadmap
 
-- [x] Local doc ingestion + RAG
-- [x] Interactive Q&A chatbot
-- [ ] Visual progress dashboard
-- [ ] LangGraph code auto-annotator (future)
+- [x] Learn and review flows with RAG
+- [x] Question logging + progress tracking
+- [x] Gradio web interface
+- [ ] Visual dashboard
+- [ ] Intelligent follow-up questions
+- [ ] Curriculum auto-extraction
 
-## 🧑‍💻 Maintained By
+---
+
+## 👨‍💻 Maintained By
 
 **Reese Ludwick**  
 _Computer Science @ Shepherd University_  
 _Machine Learning • LangGraph • Agentic Workflows_
 
+---
+
 ## 📄 License
 
 MIT License
+

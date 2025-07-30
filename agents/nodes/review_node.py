@@ -1,40 +1,35 @@
-# agents/nodes/review_node.py
-
+from pathlib import Path
 import json
 import random
+from agents.prompts.review_prompt import REVIEW_PROMPT
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from agents.state import TutorAgentState
-from prompts.review_prompt import REVIEW_PROMPT
-from dotenv import load_dotenv
-load_dotenv(override=True)
-LOG_PATH = "logs/question_log.json"
-
-PROMPT_TEMPLATE = ChatPromptTemplate.from_messages([
-    ("system", REVIEW_PROMPT)
-])
 
 def suggest_review_questions(state: TutorAgentState) -> TutorAgentState:
-    print("[🔁] Generating review questions...")
+    log_path = Path("logs/question_log.json")
 
-    # Load recent questions
-    try:
-        with open(LOG_PATH, "r", encoding="utf-8") as f:
-            log_data = json.load(f)
-    except FileNotFoundError:
-        return state.copy(update={"current_questions": ["No past questions to review."]})
+    if not log_path.exists():
+        print("[ℹ️] No past questions found. Please complete a learn session first.")
+        return state.model_copy(update={"current_question": []})
 
-    # Grab a random sample of 3 past questions
-    seen_qs = [entry["question"] for entry in log_data][-20:]
-    sample = random.sample(seen_qs, min(3, len(seen_qs)))
+    with open(log_path, "r") as f:
+        past_questions = json.load(f)
 
-    joined_sample = "\n".join(sample)
-    prompt = PROMPT_TEMPLATE.format_messages(seen_questions=joined_sample)
+    if not past_questions:
+        print("[ℹ️] Question log is empty. Nothing to review yet.")
+        return state.model_copy(update={"current_question": []})
 
-    llm = ChatOpenAI(temperature=0.3)
-    result = llm(prompt)
+    sampled_questions = random.sample(past_questions[-20:], k=min(3, len(past_questions)))
+    formatted_qas = "\n".join(
+        f"Q: {entry['question']}\nA: {entry['answer']}" for entry in sampled_questions
+    )
 
-    raw = result.content.strip()
-    questions = [q.strip("- ").strip() for q in raw.split("\n") if q.strip()]
+    prompt = ChatPromptTemplate.from_messages(REVIEW_PROMPT)
+    chain = prompt | ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5) | StrOutputParser()
 
-    return state.model_copy(update={"current_questions": questions})
+    result = chain.invoke({"examples": formatted_qas})
+    questions = [q.strip("- ").strip() for q in result.split("\n") if q.strip()]
+
+    return state.model_copy(update={"current_question": questions})

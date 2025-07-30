@@ -31,3 +31,7 @@ class TutorAgentState(BaseModel):
 
     # Review mode or learn mode
     mode: Literal["learn", "review"] = "learn"
+
+    feedback_output: Optional[str] = None
+
+    next_suggestion: Optional[str] = None
