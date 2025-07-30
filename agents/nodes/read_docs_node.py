@@ -1,5 +1,4 @@
-# agents/nodes/read_docs_node.py
-
+### FILE: read_docs_node.py
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
@@ -8,16 +7,14 @@ from langchain_community.vectorstores import FAISS
 from agents.state import TutorAgentState
 
 def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
-    """Retrieve relevant documentation chunks based on user input."""
     print("[🔍] Retrieving relevant context from FAISS vectorstore...")
 
     if not state.user_input:
         raise ValueError("No user input provided to retrieve context.")
 
     embeddings = OpenAIEmbeddings()
-    # Load the vector index from the local directory (embeddings/vector_store)
     vectorstore = FAISS.load_local(
-        state.vectorstore_path,
+        "embeddings/vector_store",
         embeddings,
         allow_dangerous_deserialization=True
     )
@@ -26,3 +23,4 @@ def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
     retrieved_text = [doc.page_content for doc in docs]
 
     return state.model_copy(update={"retrieved_chunks": retrieved_text})
+

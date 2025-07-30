@@ -5,6 +5,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
 
 def suggest_next_unseen_concept(state: TutorAgentState) -> TutorAgentState:
     concepts_file = Path("data/concepts.json")
@@ -23,14 +27,17 @@ def suggest_next_unseen_concept(state: TutorAgentState) -> TutorAgentState:
         if concept["id"] not in covered and prereqs.issubset(covered):
             uncovered.append(concept["name"])
 
-    context = "\n".join([doc.page_content for doc in (state.retrieved_chunks or [])])
-    prompt = ChatPromptTemplate.from_messages(QUESTION_GENERATION_PROMPT)
+    context = "\n".join(state.retrieved_chunks or [])
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a curriculum guide."),
+        ("user", "Covered: {covered}\nUncovered: {uncovered}\nDocs: {docs}\nSuggest the next best concept to study.")
+    ])
     chain = prompt | ChatOpenAI(model="gpt-3.5-turbo", temperature=0.4) | StrOutputParser()
 
     result = chain.invoke({
         "covered": list(covered),
         "uncovered": uncovered,
-        "docs": context[:4000]  # truncate to fit
+        "docs": context[:4000]
     })
 
     return state.model_copy(update={"next_suggestion": result.strip()})

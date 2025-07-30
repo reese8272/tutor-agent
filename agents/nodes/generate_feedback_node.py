@@ -1,45 +1,35 @@
+### FILE: generate_feedback_node.py
 from agents.state import TutorAgentState
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.runnables import RunnableConfig
-from prompts.feedback_prompt import feedback_prompt
-from langchain_core.runnables import RunnableLambda
-
-from langgraph.graph import StateGraphNode
-
 from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from prompts.feedback_prompt import FEEDBACK_PROMPT
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-parser = JsonOutputParser()
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", feedback_prompt),
-        ("human", "{question}"),
-        ("user", "{user_answer}"),
-    ]
-)
-
-chain = prompt | llm | parser
+prompt = ChatPromptTemplate.from_messages(FEEDBACK_PROMPT)
 
 def generate_feedback(state: TutorAgentState) -> TutorAgentState:
+    if not state.current_question:
+        return state
+
     question = state.current_question.text
     user_answer = state.user_input
 
     try:
-        result = chain.invoke({
-            "question": question,
-            "user_answer": user_answer
-        }, config=RunnableConfig(tags=["feedback"]))
+        result = llm.invoke(prompt.format_messages(question=question, answer=user_answer))
+        feedback_text = result.content.strip()
+        correct_flag = feedback_text.lower().startswith("correct")
 
-        state.last_feedback = result.get("feedback", "").strip()
-        state.last_correct = result.get("correct", False)
+        return state.model_copy(update={
+            "last_feedback": feedback_text,
+            "last_correct": correct_flag
+        })
 
     except Exception as e:
-        state.last_feedback = f"[⚠️] Error generating feedback: {e}"
-        state.last_correct = False
-
-    return state
-
-node = generate_feedback
+        return state.model_copy(update={
+            "last_feedback": f"[⚠️] Error generating feedback: {e}",
+            "last_correct": False
+        })
