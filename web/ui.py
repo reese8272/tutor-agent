@@ -1,102 +1,64 @@
+### FILE: ui.py
 import gradio as gr
-from agents.tutor_agent import create_tutor_graph
+import uuid
+import asyncio
+from dotenv import load_dotenv
+from agents.tutor_agent import define_graph
 from agents.state import TutorAgentState
 from agents.nodes.store_answers_node import embed_and_store_user_answers
-from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+def state_to_messages(state: TutorAgentState) -> list:
+    messages = []
 
-graph = create_tutor_graph()
+    if state.target_concept_id:
+        messages.append({"role": "system", "content": f"Concept: {state.target_concept_id}"})
 
-with gr.Blocks() as demo:
-    gr.Markdown("# 🧠 LangGraph Tutor Agent (Web UI)")
+    if state.current_question:
+        messages.append({"role": "assistant", "content": f"Question: {state.current_question.text}"})
 
-    with gr.Row():
-        mode_dropdown = gr.Dropdown(choices=["learn", "review"], label="Mode", value="learn")
-        concept_input = gr.Textbox(label="What concept do you want to study?", placeholder="e.g., langgraph.StateGraph")
-        start_button = gr.Button("Start Session")
+    if state.user_input:
+        messages.append({"role": "user", "content": state.user_input})
 
-    chat_box = gr.Chatbot(label="Tutor Chat")
-    user_msg = gr.Textbox(label="Your Answer", placeholder="Type here...", interactive=False)
-    submit_btn = gr.Button("Submit Answer", interactive=False)
-    end_btn = gr.Button("End Session", interactive=False)
-    suggestion_box = gr.Textbox(label="Next Suggested Concept", interactive=False)
+    if state.last_feedback:
+        messages.append({"role": "assistant", "content": f"Feedback: {state.last_feedback}"})
 
-    session_state = {
-        "state": None,
-        "question_index": 0,
-        "questions": [],
-        "history": [],
-    }
+    if state.next_suggestion:
+        messages.append({"role": "system", "content": f"Next Suggested Concept: {state.next_suggestion}"})
 
-    def start_session(concept, mode):
-        session_state["state"] = TutorAgentState(
-            mode=mode,
-            target_concept_id=concept,
-            user_input="",
+    return messages
+
+async def chat(user_input, history):
+    if not chat.graph:
+        chat.graph = await define_graph()
+
+    # Set up new state if first message
+    if not chat.session_state:
+        chat.session_state = TutorAgentState(
+            mode="learn",
+            target_concept_id=user_input,
+            user_input=user_input,
             messages=[],
             memory=[],
             pending_embeddings=[]
         )
-        session_state["state"] = graph.invoke(session_state["state"])
-        session_state["questions"] = session_state["state"].questions
-        session_state["question_index"] = 0
-        session_state["history"] = []
+    else:
+        chat.session_state.user_input = user_input
 
-        if not session_state["questions"]:
-            return gr.update(visible=True), "⚠️ No questions generated.", gr.update(interactive=False), gr.update(interactive=False), ""
+    chat.session_state = await chat.graph.ainvoke(chat.session_state)
+    return state_to_messages(chat.session_state)
 
-        q = session_state["questions"][0].text
-        session_state["history"].append(("Tutor", q))
-        return session_state["history"], "", gr.update(interactive=True), gr.update(interactive=True), ""
+chat.graph = None
+chat.session_state = None
 
-    def answer_question(user_input):
-        idx = session_state["question_index"]
-        question = session_state["questions"][idx]
-        session_state["state"].user_input = user_input
-        session_state["state"].current_question = question
 
-        session_state["state"] = graph.invoke(session_state["state"])
-        feedback = session_state["state"].get("last_feedback", "")
+demo = gr.ChatInterface(
+    fn=chat,
+    title="LangGraph Tutor Agent",
+    description="Learn or review concepts interactively!",
+    submit_btn="Submit"
+)
 
-        session_state["history"].append(("You", user_input))
-        session_state["history"].append(("Tutor", f"🧠 Feedback: {feedback}"))
-
-        session_state["question_index"] += 1
-        if session_state["question_index"] < len(session_state["questions"]):
-            next_q = session_state["questions"][session_state["question_index"]].text
-            session_state["history"].append(("Tutor", next_q))
-        else:
-            session_state["history"].append(("Tutor", "✅ You've completed this session. Click 'End Session' to embed your correct answers."))
-
-        return session_state["history"], ""
-
-    def end_session():
-        suggestion = session_state["state"].next_suggestion or "No suggestion available."
-        if session_state["state"].pending_embeddings:
-            embed_and_store_user_answers(session_state["state"].pending_embeddings)
-            session_state["state"].pending_embeddings.clear()
-            session_state["history"].append(("System", "✅ Embedded all correct answers and ended session."))
-        else:
-            session_state["history"].append(("System", "No correct answers to embed."))
-        return session_state["history"], suggestion
-
-    start_button.click(
-        start_session,
-        inputs=[concept_input, mode_dropdown],
-        outputs=[chat_box, user_msg, submit_btn, end_btn, suggestion_box],
-    )
-
-    submit_btn.click(
-        answer_question,
-        inputs=[user_msg],
-        outputs=[chat_box, user_msg],
-    )
-
-    end_btn.click(
-        end_session,
-        outputs=[chat_box, suggestion_box]
-    )
-
-demo.launch()
+if __name__ == "__main__":
+    demo.launch()

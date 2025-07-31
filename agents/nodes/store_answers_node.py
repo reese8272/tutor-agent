@@ -7,7 +7,7 @@ LOG_FILE = Path("logs/answers_log.json")
 QUESTION_LOG = Path("logs/question_log.json")
 LOG_FILE.parent.mkdir(exist_ok=True)
 
-def store_answer(state: TutorAgentState) -> TutorAgentState:
+async def store_answer(state: TutorAgentState) -> TutorAgentState:
     if not state.current_question:
         return state
     question = state.current_question

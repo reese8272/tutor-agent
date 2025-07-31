@@ -6,7 +6,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from agents.state import TutorAgentState
 
-def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
+async def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
     print("[🔍] Retrieving relevant context from FAISS vectorstore...")
 
     if not state.user_input:
@@ -22,5 +22,5 @@ def retrieve_context_from_docs(state: TutorAgentState) -> TutorAgentState:
     docs = vectorstore.similarity_search(state.user_input, k=4)
     retrieved_text = [doc.page_content for doc in docs]
 
-    return state.model_copy(update={"retrieved_chunks": retrieved_text})
-
+    state.retrieved_chunks = retrieved_text
+    return state

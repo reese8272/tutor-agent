@@ -14,6 +14,6 @@ Return the questions as a list of strings.
     ),
     (
         "user",
-        "{context}"
+        "{{context}}"
     ),
 ]

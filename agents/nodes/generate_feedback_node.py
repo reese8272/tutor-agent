@@ -11,7 +11,7 @@ llm = ChatOpenAI(model="gpt-4", temperature=0)
 
 prompt = ChatPromptTemplate.from_messages(FEEDBACK_PROMPT)
 
-def generate_feedback(state: TutorAgentState) -> TutorAgentState:
+async def generate_feedback(state: TutorAgentState) -> TutorAgentState:
     if not state.current_question:
         return state
 
@@ -19,17 +19,15 @@ def generate_feedback(state: TutorAgentState) -> TutorAgentState:
     user_answer = state.user_input
 
     try:
-        result = llm.invoke(prompt.format_messages(question=question, answer=user_answer))
+        result = await llm.ainvoke(prompt.format_messages(question=question, answer=user_answer))
         feedback_text = result.content.strip()
         correct_flag = feedback_text.lower().startswith("correct")
 
-        return state.model_copy(update={
-            "last_feedback": feedback_text,
-            "last_correct": correct_flag
-        })
+        state.last_feedback = feedback_text
+        state.last_correct = correct_flag
 
     except Exception as e:
-        return state.model_copy(update={
-            "last_feedback": f"[⚠️] Error generating feedback: {e}",
-            "last_correct": False
-        })
+        state.last_feedback = f"[⚠️] Error generating feedback: {e}"
+        state.last_correct = False
+
+    return state
