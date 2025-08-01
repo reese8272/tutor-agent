@@ -1,41 +1,56 @@
-### FILE: suggest_next_node.py
-from agents.state import TutorAgentState
-from prompts.question_generation_prompt import QUESTION_GENERATION_PROMPT
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+"""Node that suggests the next concept for the learner to explore."""
+
 import json
 from pathlib import Path
-from dotenv import load_dotenv
+from agents.state import TutorAgentState
 
-load_dotenv(override=True)
 
 async def suggest_next_unseen_concept(state: TutorAgentState) -> TutorAgentState:
+    """Determine an appropriate next concept that has not yet been covered.
+
+    The ``data/concepts.json`` file defines a directed acyclic graph of concepts
+    and their prerequisites. This function looks for the first concept whose
+    prerequisites are all contained in ``state.covered_concepts`` and that has
+    not itself been covered. The chosen concept's name is stored on
+    ``state.next_suggestion``. If no such concept exists, ``next_suggestion``
+    will be set to ``None``.
+
+    Parameters
+    ----------
+    state : TutorAgentState
+        The current agent state.
+
+    Returns
+    -------
+    TutorAgentState
+        The updated state with ``next_suggestion`` populated or cleared.
+    """
     concepts_file = Path("data/concepts.json")
     if not concepts_file.exists():
-        print("[⚠️] Missing data/concepts.json")
+        print("[⚠️] Missing data/concepts.json; cannot suggest next concept.")
+        state.next_suggestion = None
         return state
 
-    with open(concepts_file, "r") as f:
-        all_concepts = json.load(f)
+    try:
+        with open(concepts_file, "r", encoding="utf-8") as f:
+            all_concepts = json.load(f)
+    except Exception as e:
+        print(f"[⚠️] Failed to load concepts: {e}")
+        state.next_suggestion = None
+        return state
 
     covered = set(state.covered_concepts or [])
-    uncovered = []
-
+    suggestion = None
     for concept in all_concepts:
+        concept_id = concept.get("id")
         prereqs = set(concept.get("prerequisites", []))
-        if concept["id"] not in covered and prereqs.issubset(covered):
-            uncovered.append(concept["name"])
+        if concept_id not in covered and prereqs.issubset(covered):
+            suggestion = concept.get("name", concept_id)
+            break
 
-    context = "\n".join(state.retrieved_chunks or [])
-    prompt = ChatPromptTemplate.from_messages(QUESTION_GENERATION_PROMPT)
-    chain = prompt | ChatOpenAI(model="gpt-3.5-turbo", temperature=0.4) | StrOutputParser()
-
-    result = chain.invoke({
-        "covered": list(covered),
-        "uncovered": uncovered,
-        "docs": context[:4000]
-    })
-
-    state.next_suggestion = result.strip()
+    state.next_suggestion = suggestion
     return state
+
+
+# Alias used when adding this node to a graph
+node = suggest_next_unseen_concept

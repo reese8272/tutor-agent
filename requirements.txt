@@ -25,3 +25,7 @@ rich
 gradio
 langchain-openai
 langchain-community
+
+# Testing
+pytest
+pytest-asyncio
