@@ -1,6 +1,8 @@
 """Command‑line interface for interacting with the tutor agent."""
 
 import asyncio
+import json
+from pathlib import Path
 from agents.tutor_agent import define_graph
 from agents.state import TutorAgentState
 from agents.nodes.store_answers_node import embed_and_store_user_answers
@@ -14,7 +16,6 @@ load_dotenv(override=True)
 async def run_cli() -> None:
     """Run an interactive command‑line tutoring session."""
     # Initialize log files if they don't exist
-    import json
     from pathlib import Path
     
     log_files = [Path("logs/answers_log.json"), Path("logs/question_log.json")]
@@ -24,21 +25,49 @@ async def run_cli() -> None:
             with open(log_file, "w", encoding="utf-8") as f:
                 json.dump([], f)
     
+
     graph = await define_graph()
     print("🧠 Welcome to the LangGraph Tutor Agent!")
-    print("You can enter 'learn' to study new concepts or 'review' to test past ones.\n")
+    print("Choose from three modes:")
+    print("- 'learn': Study new concepts with interactive questions")
+    print("- 'review': Test your knowledge from past learning")  
+    print("- 'doc_search': Find exact documentation references and quotes\n")
 
     def print_separator() -> None:
         print("=" * 60)
 
-    # Get the initial topic and mode ONCE
-    concept_input = input("What do you want to learn or review today? → ").strip()
-    if concept_input.lower() in {"exit", "quit"}:
-        print("👋 Exiting...")
+    # Extract main topics from the database
+    # First try to use cached topics, then extract if needed
+    extracted_topics_path = Path("data/extracted_topics.json")
+    if extracted_topics_path.exists():
+        print("📋 Loading comprehensive topics from documentation analysis...")
+        with open(extracted_topics_path, "r", encoding="utf-8") as f:
+            topics = json.load(f)
+    else:
+        print("🔍 Analyzing documentation to extract topics...")
+        from agents.nodes.quick_topic_extractor import quick_extract_topics_from_docs
+        topic_state = TutorAgentState(mode="extract_topics")
+        topics_result = await quick_extract_topics_from_docs(topic_state)
+        topics = topics_result.topics
+    if not topics:
+        print("❌ No topics found in the database. Exiting.")
         return
+    print("Available topics:")
+    for idx, topic in enumerate(topics, 1):
+        print(f"  {idx}. {topic['name']} [{topic['category']}] (id: {topic['id']})")
+    print()
+    while True:
+        topic_choice = input(f"Pick a topic by number (1-{len(topics)}), or type 'exit': ").strip()
+        if topic_choice.lower() in {"exit", "quit"}:
+            print("👋 Exiting...")
+            return
+        if topic_choice.isdigit() and 1 <= int(topic_choice) <= len(topics):
+            concept_input = topics[int(topic_choice)-1]["id"]
+            break
+        print("❌ Invalid choice. Please enter a valid number.")
 
-    mode = input("Choose mode ('learn' or 'review'): ").strip().lower()
-    if mode not in {"learn", "review"}:
+    mode = input("Choose mode ('learn', 'review', or 'doc_search'): ").strip().lower()
+    if mode not in {"learn", "review", "doc_search"}:
         print("❌ Invalid mode. Defaulting to 'learn'.")
         mode = "learn"
 
@@ -62,6 +91,18 @@ async def run_cli() -> None:
 
     # Invoke the graph to retrieve context and/or sample past questions
     result = await graph.ainvoke(state)
+
+    # Handle doc_search mode differently - just display results
+    if mode == "doc_search":
+        print_separator()
+        print(f"[🔍] Documentation search results for: {concept_input}")
+        if result.get("search_results"):
+            print(result["search_results"])
+        else:
+            print("❌ No documentation found for your search query.")
+        print_separator()
+        print("Thanks for using the documentation search! 🚀")
+        return
 
     # If no questions were generated, inform the user and exit
     if not result.get("questions"):

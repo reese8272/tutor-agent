@@ -53,6 +53,12 @@ class TutorAgentState(BaseModel):
     # A suggested next concept for the learner to explore. Set by the
     # ``suggest_next_unseen_concept`` node.
     next_suggestion: Optional[str] = None
+    # List of available topics extracted from the concepts database. Used for
+    # topic selection in CLI and web UI.
+    topics: Annotated[List[Dict[str, str]], add] = Field(default_factory=list)
+    # Search results from documentation search mode. Contains formatted
+    # documentation references and quotes.
+    search_results: Optional[str] = None
 
     model_config = {
         "arbitrary_types_allowed": True
